@@ -5,6 +5,7 @@ library(sparklyr)
 library(lubridate)
 
 # need this for sparklyr
+Sys.getenv("JAVA_HOME")
 Sys.setenv(JAVA_HOME = "/usr/lib/jvm/java-1.8.0-openjdk-amd64")
 
 ## 1. convert xlsx files to csv's ----
@@ -32,6 +33,16 @@ src_tbls(sc)
 
 # read in csv files to spark
 csvfiles <- list.files("data/csv")
+
+# get full dataset in R as tibble
+data <- tibble()
+for (i in 1:length(csvfiles)) {
+  print(i)
+  data <- bind_rows(data, read_csv(paste0("data/csv/", csvfiles[i])))
+  print("done")
+}
+# data %>% saveRDS("data/data.RDS")
+
 
 for (i in 1:length(csvfiles)) {
   print(i)
@@ -124,3 +135,37 @@ spark_disconnect(sc)
 
 
 sc <- spark_connect(master = "spark://192.168.1.133")
+
+
+# conventional dplyr
+data %>% 
+  sample_n(1000) %>% 
+  filter(`Loan Status` == "Finished prematurely") %>% 
+  mutate(TermActual = interval(`Issue Date`, `Closing Date`) %/% months(1)) %>% 
+  ggplot(aes(x = Term, y = TermActual, text = paste("Issue: ", `Issue Date`, 
+                                                    "<br>Cl Date: ", `Closing Date`),
+             size = `Initial Loan Amount`)) + 
+  geom_point() -> p
+
+ggplotly(p, tooltip = "text")
+
+# total loan amount on Mintos
+data %>% filter(Currency == "EUR") %>% 
+  summarise(Amount = sum(`Initial Loan Amount`)) %>% 
+  mutate(AmountMillion = scales::number(Amount/1000000))
+
+data %>% filter(Currency == "EUR") %>% 
+  group_by(Year = year(`Issue Date`)) %>% 
+  summarise(Amount = sum(`Initial Loan Amount`)) %>% 
+  mutate(AmountMillion = scales::number(Amount/1000000)) -> a
+
+a
+
+a %>% ggplot(aes(x = Year, y = Amount)) + geom_line()
+
+# how much is currently open?
+data %>% filter(Currency == "EUR") %>% 
+  group_by(`Loan Status`) %>% 
+  summarise(Amount = sum(`Initial Loan Amount`)) %>% 
+  mutate(AmountMillion = scales::number(Amount/1000000))
+
