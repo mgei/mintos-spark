@@ -1,0 +1,238 @@
+---
+title: "A quantitative look at the Mintos.com loan book dataset"
+output: html_document
+---
+
+# What is Mintos?
+
+[Mintos.com](https://www.mintos.com/en/) is a [P2P lending](https://en.wikipedia.org/wiki/Peer-to-peer_lending) platform. One can invest in loans offered by various *loan organizers* from various countries. Most loans are short-term and personal loans from [FSU](https://en.wikipedia.org/wiki/Post-Soviet_states) countries such as Georgia, Armenia, Russia, but also Spain or Indonesia etc. Many loans are very short term (1 month) but there's also some with longer terms (several years). The majority of loans are denominated in Euro but the share of loans in other currencies is increasing. Typical interest rates for Euro-loans is 11 to 13%.
+
+More than 13 million loans were issued on Mintos as of mid 2019. The loan amount offered is over 3 billion EUR (Euro loans only).
+
+Mintos grants access to the full loan book of all loans issued since inception. For this head to [Statistics](https://www.mintos.com/en/statistics/) and look for the link *Download Loan Book* (might require having an account and being logged in). One gets a ZIP with (as of today) 27 individual Excel sheets. Unzipped it's abozut 1 Gb.
+
+Let's have a look.
+
+# Sidenote on data analytics
+
+While Mintos hands out the data in several Excel sheets, Excel is not recommended for analysis. The [maximum number of rows in Microsoft Excel](https://support.office.com/en-ie/article/excel-specifications-and-limits-1672b34d-7043-467e-8e27-269d656771c3) is 1 048 576.
+
+For using it in R, I recommend first converting and saving the sheets to csv's. These csv's can be loaded and row-bind. I use tidyR tibbles and dplyr but for performance reasons one could prefer to use data.table.
+
+```{r read1, eval=F}
+library(tidyverse)
+library(readxl)
+
+# converting xlsx to csv
+files <- list.files("data/xlsx")
+
+for (i in 1:length(files)) {
+  print(i)
+  data <- read_excel(paste0("data/", files[i]))
+  data %>% write_csv(paste0("data/", str_replace(files[i], ".xlsx", ".csv")))
+  print("done")
+}
+rm(data)
+
+# read and bind together
+csvfiles <- list.files("data/csv")
+
+data <- tibble()
+for (i in 1:length(csvfiles)) {
+  print(i)
+  data <- bind_rows(data, read_csv(paste0("data/csv/", csvfiles[i])))
+  print("done")
+}
+
+# check the size
+object.size(data) %>% format(units = "auto")
+
+# save for later use
+data %>% saveRDS("data/data.RDS")
+
+# save in two RDS (both <100Mb because of Github's restiction on file size)
+nrows <- nrow(data)
+half  <- round(nrows/2)
+
+data[1:half,]         %>% saveRDS("data/data1.RDS")
+data[(half+1):nrows,] %>% saveRDS("data/data2.RDS")
+```
+
+Yet better would be to use Apache Spark, e.g. with [sparklyr](https://spark.rstudio.com/). I tried it and it works fine, but at the end I chose to use my usual workflow with dplyr anyway (instead of dplyr commands with sparklyr).
+
+```{r spark, eval = F}
+library(sparklyr)
+
+for (i in 1:length(csvfiles)) {
+  print(i)
+  sparklyr::spark_read_csv(sc, 
+                           name = paste0("data", i),
+                           path = paste0("data/csv/", csvfiles[i]))
+  assign(paste0("sparkdata", i), tbl(sc, paste0("data", i)))
+  print("done")
+}
+
+data <- sdf_bind_rows(sparkdata1, sparkdata2, sparkdata3, sparkdata4, sparkdata5, sparkdata6, sparkdata7, sparkdata8, sparkdata9, sparkdata10,
+                      sparkdata11, sparkdata12, sparkdata13, sparkdata14, sparkdata15, sparkdata16, sparkdata17, sparkdata18, sparkdata19, sparkdata20,
+                      sparkdata21, sparkdata22, sparkdata23, sparkdata24, sparkdata25, sparkdata26, sparkdata27)
+
+object.size(data) # should be tiny
+```
+
+A medium spec workstation is recommended (used here 16 Gb RAM + 16 Gb Swap, i7-4790 CPU @ 3.60GHz × 4). My laptop was not suited for the job.
+
+# Stylized facts
+
+First, let's look at the available columns.
+
+```{r setup, warning=F, message=F}
+library(tidyverse)
+library(lubridate)
+library(magrittr)
+
+data <- bind_rows(readRDS("data/data1.RDS"), readRDS("data/data2.RDS"))
+
+data %>% glimpse()
+```
+
+
+* *Id*: Loan ID, can be looked up in `https://www.mintos.com/en/<Id>` e.g. https://www.mintos.com/en/18218910-01
+* *Listing Date*: in general loans are listed some time after issue
+* *Loan Originator*: company handling the loan
+* *Mintos Rating*: A, A-, B+, ..., D. Can be changed, hence we do not like to include them in the analysis
+* *LTV*: loan to value, aka leverage (equity / (debt + equity))
+* *Buyback* (guarantee)
+
+One loan at random:
+
+```{r randomloan}
+set.seed(2)
+
+data %>% 
+  sample_n(1) %>% 
+  glimpse()
+
+```
+
+Due to the number of observations we resort to samples of 1 000 to 10 000 for some calculations.
+
+## Correlation matrix
+
+```{r corrmat}
+# library(ggcorrplot)
+library(GGally)
+
+# topcountries <- data %>% 
+#   group_by(Country) %>% 
+#   count() %>% 
+#   ungroup() %>% 
+#   arrange(-n) %>% 
+#   top_n(3) %>% 
+#   pull(Country)
+# 
+# toporigin <- data %>% 
+#   group_by(`Loan Originator`) %>% 
+#   count() %>% 
+#   ungroup() %>% 
+#   arrange(-n) %>% 
+#   top_n(3) %>% 
+#   pull(`Loan Originator`)
+
+set.seed(15)
+
+data %>% 
+  select(Rate = `Loan Rate Percent`, Term, LTV0 = `Initial LTV`, Amount1000 =`Initial Loan Amount`, Currency, `Listing Date`, Buyback,
+         Country, Origin = `Loan Originator`, Collateral) %>% 
+  mutate(Currency = recode_factor(Currency, "EUR" = "EUR", .default = "Other"),
+         Buyback = as.factor(Buyback),
+         Collateral = as.factor(Collateral),
+         Country = fct_other(Country, keep = topcountries, other_level = "Other"),
+         Origin = fct_other(Origin, keep = toporigin, other_level = "Other"),
+         ListingYear = year(`Listing Date`)) %>% 
+  select(-`Listing Date`) %>% 
+  select(-Country, -Origin) %>% 
+  sample_n(10000) %>% 
+  filter(!is.na(ListingYear)) -> quants_fct
+
+mintoscolor <- "#78c8c7"
+
+quants_fct %>% 
+  # drop_na() %>% 
+  mutate(ListYr = as.factor(ListingYear),
+         Amount1000 = Amount1000/1000) %>%
+  select(-ListingYear) %>% 
+  ggpairs(
+    lower = list(
+      continuous = wrap("smooth_loess", alpha = 0.5, color = mintoscolor),
+      combo = wrap("box_no_facet", alpha = 0.5, fill = mintoscolor), #"facetdensity",
+      discrete = wrap("ratio", alpha = 0.5, fill = mintoscolor)
+      # mapping = aes(color = ListYr)
+      ),
+    upper = list(
+      combo = wrap("facetdensity", color = mintoscolor),
+      discrete = wrap("ratio", alpha = 0.5, fill = mintoscolor)
+    ),
+    diag = list(
+      continuous = wrap("densityDiag", alpha = 0.5),
+      discrete = "barDiag",
+      mapping = aes(color = ListYr)
+    ),
+  switch = "y",
+  title = "Correlation of Mintos.com loan characteristics") -> cp
+
+cp
+
+``` 
+
+## Loan interest rates
+
+What we see is that rates have droped since 2015 but most recently in 2019 have risen again. This might be partially caused by a higher share of non-EUR loans which generally offer higher interest rates.
+
+```{r interest}
+# library(ggbeeswarm)
+
+set.seed(12)
+
+data %>% 
+  filter(Currency == "EUR", !is.na(`Listing Date`)) %>% 
+  mutate(ListYr = factor(year(`Listing Date`))) -> d
+
+d %>% sample_n(30000) %>% 
+  ggplot(aes(x = ListYr, y = `Loan Rate Percent`)) +
+  geom_boxplot() +
+  # geom_beeswarm(data = (d %>% sample_n(1000)), alpha = 0.1, color = mintoscolor)
+  geom_jitter(data = (d %>% sample_n(1000)), alpha = 0.3, color = mintoscolor) +
+  scale_y_continuous(breaks = seq(0,25,1)) +
+  labs(title = "Distribution of interest rate of newly listed loans") +
+  theme_bw()
+
+```
+
+Let's compare the interest rates over originator, country, and currency.
+
+```{r comparei}
+data %>% 
+  select(Rate = `Loan Rate Percent`, Country, `Loan Originator`, Currency) %>% 
+  
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

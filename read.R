@@ -43,6 +43,7 @@ for (i in 1:length(csvfiles)) {
   print("done")
 }
 # data %>% saveRDS("data/data.RDS")
+# data <- read_rds("data/data.RDS")
 
 
 for (i in 1:length(csvfiles)) {
@@ -144,9 +145,9 @@ data %>%
   filter(`Loan Status` == "Finished prematurely") %>% 
   mutate(TermActual = interval(`Issue Date`, `Closing Date`) %/% months(1)) %>% 
   filter(Term < TermActual) %>% sample_n(1) %>% glimpse()
-  ggplot(aes(x = Term, y = TermActual, text = paste("Issue: ", `Issue Date`, 
-                                                    "<br>Cl Date: ", `Closing Date`),
-             size = `Initial Loan Amount`)) + 
+ggplot(aes(x = Term, y = TermActual, text = paste("Issue: ", `Issue Date`, 
+                                                  "<br>Cl Date: ", `Closing Date`),
+           size = `Initial Loan Amount`)) + 
   geom_point() -> p
 
 ggplotly(p, tooltip = "text")
@@ -210,7 +211,7 @@ data %>%
          `Remaining Loan Amount` > 0) %>% 
   group_by(`Loan Status`) %>% 
   summarise(Count = n(), AmountLost = sum(`Remaining Loan Amount`))
-  
+
 data %>% 
   filter(Currency == "EUR",
          `Closing Date` < Sys.Date(),
@@ -228,7 +229,7 @@ data %>%
   filter(`Loan Originator` == "Eurocent") %>% 
   group_by(`Loan Status`) %>% 
   summarise(Count = n(), Amount = sum(`Initial Loan Amount`), AmountLost = sum(`Remaining Loan Amount`))
-  
+
 data %>% 
   filter(Id == "993020-01") %>% 
   glimpse()
@@ -270,6 +271,23 @@ data %>%
          ListingYear = year(`Listing Date`)) %>% 
   select(-Currency, -`Listing Date`) -> quants
 
+topcountries <- data %>% 
+  group_by(Country) %>% 
+  count() %>% 
+  ungroup() %>% 
+  arrange(-n) %>% 
+  top_n(10) %>% 
+  pull(Country)
+
+data %>% 
+  select(`Loan Rate Percent`, Term, `Initial LTV`, `Initial Loan Amount`, Currency, `Listing Date`, Buyback,
+         Country) %>% 
+  mutate(Currency = recode_factor(Currency, "EUR" = "EUR", .default = "Other"),
+         Buyback = as.factor(Buyback),
+         Country = factor(Country, levels = c(topcountries, "Other")),
+         ListingYear = year(`Listing Date`)) %>% 
+  select(-Currency, -`Listing Date`) -> quants_fct
+
 quants %>% 
   drop_na() %>% 
   cor() -> correl
@@ -284,6 +302,22 @@ correl %>% ggcorrplot(hc.order = TRUE, type = "lower",
 library(PerformanceAnalytics)
 
 quants %>% chart.Correlation()
+
+library(GGally)
+
+quants_fct %>% sample_n(1000) %>% 
+  drop_na() %>% 
+  mutate(yr = as.factor(ListingYear)) %>%
+  select(-ListingYear) %>% 
+  # ggpairs(mapping = aes(color = yr, alpha = 0.5))
+  ggpairs(
+    lower = list(continuous = "smooth",
+                 combo = "facetdensity",
+                 mapping = aes(color = yr)
+    )) -> cp
+
+cp + 
+  theme_bw()
 
 ## 5. Random portfolio ----
 # invest in Q1 2017
@@ -312,7 +346,7 @@ mintos_invest <- function(data,
   
   d <- data %>% 
     filter(`Listing Date` >= startdate)
-
+  
   if (!is.na(country)) {
     d %<>% filter(Country %in% country)
   }
@@ -375,3 +409,4 @@ mintos_invest(data, currency = "EUR")
 mtcars
 
 filtercars <- function(data, )
+  

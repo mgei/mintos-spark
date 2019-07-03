@@ -1,6 +1,7 @@
 /logs
 *.log
-.Rhistory
+*.Rhistory
 *.xlsx
 /xlsx
 *.private
+data.RDS
