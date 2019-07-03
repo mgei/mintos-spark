@@ -271,7 +271,7 @@ data %>%
       discrete = "barDiag"
     ),
   switch = "y",
-  title = "Correlation of Mintos.com loan characteristics") -> cp
+  title = "Interest rates vs. originator, country, and currenc on Mintos.com") -> cp
 
 cp +
   theme_bw()
@@ -360,7 +360,7 @@ data %>%
 
 By country (2019):
 
-```{r default2orig}
+```{r default2ctry}
 data %>% 
   filter(Currency == "EUR",
          `Closing Date` < (Sys.Date() - days(60)),
