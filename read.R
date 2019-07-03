@@ -410,3 +410,10 @@ mtcars
 
 filtercars <- function(data, )
   
+  
+data %>% filter(Currency == "EUR",
+                `Closing Date` < (Sys.Date() - days(60))) %>% 
+  group_by(Yr = year(`Closing Date`)) %>% 
+  summarise(n = n(), Amount = sum(`Initial Loan Amount`), Remaining = sum(`Remaining Loan Amount`)) %>% 
+  mutate((Remaining/Amount)*100)
+  

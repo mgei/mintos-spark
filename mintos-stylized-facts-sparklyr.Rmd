@@ -65,10 +65,8 @@ data[(half+1):nrows,] %>% saveRDS("data/data2.RDS")
 
 Yet better would be to use Apache Spark, e.g. with [sparklyr](https://spark.rstudio.com/). I tried it and it works fine, but at the end I chose to use my usual workflow with dplyr anyway (instead of dplyr commands with sparklyr).
 
-```{r spark, eval = F}
+```{r spark, eval = T}
 library(sparklyr)
-
-sc <- spark_connect(master = "local")
 
 for (i in 1:length(csvfiles)) {
   print(i)
