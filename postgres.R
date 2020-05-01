@@ -10,6 +10,22 @@ con <- DBI::dbConnect(RPostgreSQL::PostgreSQL(),
 
 DBI::dbListTables(con)
 
+mintos_db <- tbl(con, "mintos")
+
+
+mintos_db %>% summarize(n())
+
+lc <- mintos_db %>% 
+  group_by(`Loan Originator`) %>% 
+  count()
+
+lc
+
+mintos_db %>% sample_n(100)
+
+DBI::dbGetQuery(con, "SELECT * FROM mintos ORDER BY random() LIMIT 10;")
+
+
 mtcars_tbl <- mtcars %>% 
   rownames_to_column("model") %>% 
   as_tibble()
@@ -23,17 +39,24 @@ copy_to(con, mtcars_tbl, "mtcars",
 
 mtcars_db <- tbl(con, "mtcars")
 
+
+
+mintos_db %>% 
+  summarise(n = n())
+
 mtcars_db %>% 
   group_by(cyl) %>% 
   nest()
 
-mintos <- readRDS("~/Documents/R/mintos-spark/data/data.RDS")
+mintos <- read_rds("~/Documents/R/mintos-spark/data/data.RDS")
 
-copy_to(con, mintos, "mintos",
+copy_to(con, 
+        mintos, 
+        "mintos",
         temporary = FALSE, 
         indexes = list(
           colnames(mintos)
         )
 )
 
-mtcars_db <- tbl(con, "mtcars")
+                                                                                                                                                                                                                                                                                                                                                      mtcars_db <- tbl(con, "mtcars")
