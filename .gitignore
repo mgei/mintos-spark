@@ -6,3 +6,6 @@
 *.private
 data.RDS
 *.html
+csv/
+.ipynb_checkpoints/
+rds/
