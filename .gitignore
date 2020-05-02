@@ -10,4 +10,5 @@ csv/
 .ipynb_checkpoints/
 rds/
 zip/
-
+*_cache/
+db/

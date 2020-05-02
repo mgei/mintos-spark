@@ -416,4 +416,7 @@ data %>% filter(Currency == "EUR",
   group_by(Yr = year(`Closing Date`)) %>% 
   summarise(n = n(), Amount = sum(`Initial Loan Amount`), Remaining = sum(`Remaining Loan Amount`)) %>% 
   mutate((Remaining/Amount)*100)
+
+
+xlsx <- readxl::read_xlsx("data/xlsx/1-500000_loan_book.xlsx")
   

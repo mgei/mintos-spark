@@ -10,10 +10,29 @@ con <- DBI::dbConnect(RPostgreSQL::PostgreSQL(),
 
 DBI::dbListTables(con)
 
-mintos_db <- tbl(con, "mintos")
+mintos_db <- tbl(con, "mintos_db")
 
 
 mintos_db %>% summarize(n())
+
+
+mintos_db %>%
+  mutate(x = runif()) %>% 
+  compute() %>%
+  filter(x <= 0.01) %>% 
+  select(-x)
+
+
+
+m <- mintos_db %>%
+  mutate(x = random()) %>% 
+  compute() %>%
+  filter(x <= 0.01) %>% 
+  select(-x) %>% 
+  collect()
+
+
+
 
 lc <- mintos_db %>% 
   group_by(`Loan Originator`) %>% 
