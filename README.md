@@ -1,6 +1,8 @@
 # Analyzing loans from Mintos P2P
 
-The dataset contains >13 million loans and is too big for conventional analysis in R. Therefore we shall be using **sparklyr**.
+The dataset contains >13 million(1) loans and is too big for conventional analysis in R. Therefore we shall be using **sparklyr**.
+
+(1) 28 million as of May 2020!
 
 ## AWS EC2
 

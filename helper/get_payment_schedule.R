@@ -35,7 +35,8 @@ get_payment_schedule <- function(loan_number, tibble = F) {
 }
 
 get_payment_schedule_cache <- function(loan_number, tibble = T,
-                                       reload_if_older_than = "1 month", cache_dir = "data/payment_cache/") {
+                                       reload_if_older_than = "1 month", cache_dir = "data/payment_cache/",
+                                       cache_only = F) {
   
   if (paste0(loan_number, ".RDS") %in% list.files(cache_dir)) {
     cached <- readRDS(paste0(cache_dir, loan_number, ".RDS"))
@@ -45,6 +46,10 @@ get_payment_schedule_cache <- function(loan_number, tibble = T,
       
       return(out)
     }
+  }
+  
+  if (cache_only) {
+    return(NULL)
   }
   
   # get from Mintos
