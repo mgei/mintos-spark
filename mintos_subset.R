@@ -64,3 +64,18 @@ mintos_ss_ps_unnested <- mintos_ss_ps %>%
 
 mintos_ss_ps_unnested %>% 
   saveRDS("data/mintos_ss_ps_unnested.RDS")
+
+####
+
+mintos_ss_ps_unnested <- readRDS("data/mintos_ss_ps_unnested.RDS")
+
+mintos_ss_ps_nested <- mintos_ss_ps_unnested %>% 
+  group_by(index, Id, `Issue Date`, `Closing Date`, `Listing Date`, 
+           Country, `Loan Originator`, `Mintos Rating`, `Loan Type`, `Loan Rate Percent`, 
+           Term, Collateral, `Initial LTV`, LTV, `Loan Status`, `Buyback reason`, 
+           `Initial Loan Amount`, `Remaining Loan Amount`, Currency, Buyback, 
+           `Extendable schedule`) %>% 
+    nest()
+
+mintos_ss_ps_nested %>% 
+  
