@@ -77,5 +77,33 @@ mintos_ss_ps_nested <- mintos_ss_ps_unnested %>%
            `Extendable schedule`) %>% 
     nest()
 
-mintos_ss_ps_nested %>% 
+mintos_ss_ps_nested_lateness <- mintos_ss_ps_nested %>% 
+  mutate(data = map(data, ~.x %>% 
+                      mutate(Date_R = if_else(str_detect(Status, "^Late") & is.na(Received), as.Date("2020-05-02"), Received),
+                             lateness = Date - Date_R)))
+
+mintos_ss_ps_nested_lateness %>% saveRDS("data/mintos_ss_ps_nested_lateness.RDS")
+
+mintos_ss_ps_unnested_lateness <- mintos_ss_ps_nested_lateness %>% 
+  mutate(dataX = map(data, ~.x %>% 
+                       group_by(Date_m = floor_date(Date, unit = "month"),
+                                late20d = if_else(lateness <= -30, "late20d", "notlate")) %>% 
+                       summarise(n = n()) %>% 
+                       filter(!is.na(late20d)) %>% 
+                       pivot_wider(names_from = "late20d", values_from = "n"))) %>% 
+  select(-data) %>% 
+  unnest("dataX") %>% 
+  group_by(Date_m) %>% 
+  summarise(late20d = sum(late20d, na.rm = T), notlate = sum(notlate, na.rm = T)) %>% 
+  mutate(perc_late20d = late20d/(late20d+notlate))
   
+
+mintos_ss_ps_unnested_lateness %>% 
+  ggplot(aes(x = Date_m, y = perc_late20d)) + 
+  geom_line()
+  
+x$data[[4]] %>% 
+  print(n = 100)
+
+mintos_ss_ps_nested$data[[4]] %>% print(n = 100)
+
